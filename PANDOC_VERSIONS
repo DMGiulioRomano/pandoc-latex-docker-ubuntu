@@ -1,0 +1,6 @@
+# Maps TeX Live year to pandoc and pandoc-crossref versions.
+# pandoc-crossref must be compatible with the pandoc version.
+# See https://github.com/lierdakil/pandoc-crossref/releases for compatibility.
+
+PANDOC_VERSION_2026=3.9.0.2
+PANDOC_CROSSREF_VERSION_2026=0.3.23a

@@ -1,0 +1,112 @@
+name: Docker
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+  pull_request:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Prepare configuration
+        run: |
+          IMAGE_ID=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')/pandoc-latex-docker-ubuntu
+
+          if [[ "${{ github.ref }}" == "refs/tags/v"* ]]; then
+            PUSH="true"
+            REF_NAME=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+            VERSION=$(echo $REF_NAME | sed -e 's/^v//')
+            VERSION_YEAR=$(echo $VERSION | sed -e 's/[^0-9].*//')
+
+            . PANDOC_VERSIONS
+
+            pandoc_var=PANDOC_VERSION_${VERSION_YEAR}
+            crossref_var=PANDOC_CROSSREF_VERSION_${VERSION_YEAR}
+            PANDOC_VERSION=${!pandoc_var}
+            PANDOC_CROSSREF_VERSION=${!crossref_var}
+
+            if [[ -z "$PANDOC_VERSION" ]]; then
+              echo "Pandoc version not found for year $VERSION_YEAR ($VERSION)"
+              exit 1
+            fi
+
+            echo "Building $VERSION with pandoc $PANDOC_VERSION and crossref $PANDOC_CROSSREF_VERSION"
+          else
+            PUSH="false"
+            echo "Running test build"
+          fi
+
+          echo "IMAGE_ID=$IMAGE_ID" | tee -a "$GITHUB_ENV"
+          echo "IMAGE_IDS=docker.io/$IMAGE_ID ghcr.io/$IMAGE_ID" | tee -a "$GITHUB_ENV"
+          echo "PUSH=$PUSH" | tee -a "$GITHUB_ENV"
+          if [[ -n "$VERSION" ]]; then
+            echo "VERSION=$VERSION" | tee -a "$GITHUB_ENV"
+            echo "VERSIONS=$VERSION" | tee -a "$GITHUB_ENV"
+            echo "PANDOC_VERSION=$PANDOC_VERSION" | tee -a "$GITHUB_ENV"
+            echo "PANDOC_CROSSREF_VERSION=$PANDOC_CROSSREF_VERSION" | tee -a "$GITHUB_ENV"
+          fi
+
+      - name: Build minimal
+        run: make minimal
+
+      - name: Run minimal tests
+        run: make test-minimal
+
+      - name: Build basic
+        run: make basic
+
+      - name: Run basic tests
+        run: make test-basic
+
+      - name: Build small
+        run: make small
+
+      - name: Run small tests
+        run: make test-small
+
+      - name: Build medium
+        run: make medium
+
+      - name: Run medium tests
+        run: make test-medium
+
+      - name: Build full
+        run: make full
+
+      - name: Run full tests
+        run: make test-full
+
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        if: env.PUSH == 'true'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        if: env.PUSH == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push images
+        if: env.PUSH == 'true'
+        run: |
+          for image_id in $IMAGE_IDS; do
+            for version in $VERSIONS; do
+              for suffix in "-minimal" "-basic" "-small" "-medium" "-full" ""; do
+                image=${image_id}:${version}${suffix}
+                echo "Tagging and pushing ${image}..."
+                docker tag ${{ env.IMAGE_ID }}:${{ env.VERSION }}${suffix} ${image}
+                docker push ${image}
+              done
+            done
+          done

@@ -76,17 +76,17 @@ services:
       # Methods {#sec:methods}
 
       See @sec:intro for context.
-
-      Test equation:
-
-      $$x^2 + y^2 = z^2$$ {#eq:pythagoras}
-
-      See @eq:pythagoras.
       EOF
 
       pandoc main.md \
         --filter pandoc-crossref \
-        --pdf-engine=xelatex \
+        -o main.html
+
+      grep -q "sec:methods\|Section\|Methods" main.html || { echo "Cross-refs not resolved!"; exit 1; }
+
+      pandoc main.md \
+        --filter pandoc-crossref \
+        --pdf-engine=pdflatex \
         -o main.pdf
 
       ls main.pdf

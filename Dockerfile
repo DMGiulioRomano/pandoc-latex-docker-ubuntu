@@ -8,6 +8,7 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     wget \
     ca-certificates \
+    xz-utils \
     && wget "https://github.com/jgm/pandoc/releases/download/${PANDOC_VERSION}/pandoc-${PANDOC_VERSION}-1-amd64.deb" \
     && dpkg -i "pandoc-${PANDOC_VERSION}-1-amd64.deb" \
     && rm "pandoc-${PANDOC_VERSION}-1-amd64.deb" \
